@@ -62,4 +62,4 @@ python src/fetch_news.py
 - **时区不对**：工作流 cron 固定 UTC 08:00，如需改时间修改 `.github/workflows/daily-news.yml`
 
 ## 📄 License
-MIT — 随意用、改、商用。
+MIT — 随意用、改、商用。# trigger workflow
