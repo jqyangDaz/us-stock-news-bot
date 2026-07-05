@@ -1,0 +1,60 @@
+name: Daily US Stock Market News
+
+on:
+  schedule:
+    # 北京时间每天 16:00 = UTC 08:00
+    - cron: "0 8 * * *"
+  workflow_dispatch:  # 手动触发
+
+permissions:
+  contents: read
+
+jobs:
+  fetch-and-send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run news fetcher
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          TO_EMAIL: ${{ secrets.TO_EMAIL }}
+        run: |
+          python src/fetch_news.py
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: ['bot-failure']
+            });
+            if (issues.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🤖 Daily news bot failed at ${new Date().toISOString()}`,
+                body: `Workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\nPlease check logs and fix.`,
+                labels: ['bot-failure']
+              });
+            }
